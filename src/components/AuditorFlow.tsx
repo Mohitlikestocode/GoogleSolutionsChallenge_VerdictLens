@@ -16,6 +16,7 @@ interface AuditorFlowProps {
 }
 
 export function AuditorFlow({ onComplete }: AuditorFlowProps) {
+  console.log("AuditorFlow: Rendering...");
   const [step, setStep] = useState(1);
   const { 
     systemPrompt, 
@@ -37,6 +38,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
   } = useAuditStore();
 
   const handleLaunch = async () => {
+    console.log("AuditorFlow: Launching Audit...");
     setStep(2);
     setStatus('probing');
     setProgress(0);
@@ -66,7 +68,6 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
           );
         } catch (wsError) {
           console.warn('WebSocket failed, falling back to HTTP:', wsError);
-          // Fallback to HTTP polling
           await probesViaHttpPolling(
             systemPrompt,
             allPersonas,
@@ -75,7 +76,6 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
           );
         }
       } else {
-        // No backend configured, use local engine
         await probesViaHttpPolling(
           systemPrompt,
           allPersonas,
@@ -93,34 +93,35 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
     }
   };
 
-  const streamProbesViaWebSocket = async (
+  const streamProbesViaWebSocket = (
     backendUrl: string,
     systemPrompt: string,
     domain: string,
-    personas: any[],
+    personasToProbe: any[],
     onPersonaUpdate: (persona: any) => void,
     onProgress: (progress: number) => void
   ) => {
-    return new Promise<void>(async (resolve, reject) => {
-      const sessionId = `audit_${Date.now()}`;
-      console.log('Creating audit session...', sessionId);
+    return new Promise<void>((resolve, reject) => {
+      const run = async () => {
+        const sessionId = `audit_${Date.now()}`;
+        console.log('Creating audit session...', sessionId);
 
-      try {
-        // 1. Create session with personas
-        const response = await fetch(`${backendUrl}/api/sessions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sessionId,
-            mode: 'auditor',
-            system_prompt: systemPrompt,
-            domain,
-            target_model: targetModel,
-            personas: personas,
-          }),
-        });
+        try {
+          // 1. Create session with personas
+          const response = await fetch(`${backendUrl}/api/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              session_id: sessionId,
+              mode: 'auditor',
+              system_prompt: systemPrompt,
+              domain,
+              target_model: targetModel,
+              personas: personasToProbe,
+            }),
+          });
 
-        if (!response.ok) throw new Error('Failed to create session');
+          if (!response.ok) throw new Error('Failed to create session');
 
         // 2. Connect to WebSocket
         const wsProtocol = backendUrl.startsWith('https') ? 'wss' : 'ws';
@@ -160,8 +161,10 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
       } catch (err) {
         reject(err);
       }
-    });
-  };
+    };
+    run();
+  });
+};
 
   const probesViaHttpPolling = async (
     systemPrompt: string,
