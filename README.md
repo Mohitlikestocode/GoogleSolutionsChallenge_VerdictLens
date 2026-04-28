@@ -1,12 +1,12 @@
-<div align="center">
+# VerdictLens AI Fairness Auditor
 
-# VerdictLens — AI Fairness Auditor
+![VerdictLens Intro Banner](intro.png)
 
 **The AI that judges you is being judged back.**
 
-VerdictLens is an adversarial red-teaming tool for auditing LLM-based decision systems. It reveals bias through real-time probing with synthetic personas, statistical significance testing, semantic divergence analysis, and actionable repair strategies.
+VerdictLens is an adversarial red-teaming platform designed to audit and mitigate bias in LLM-based decision systems. By orchestrating a **"Persona Swarm"**, it stress-tests AI decision boundaries to uncover hidden statistical, linguistic, and intersectional disparities.
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 20+ (frontend)

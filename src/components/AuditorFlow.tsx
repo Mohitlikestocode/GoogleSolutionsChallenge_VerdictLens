@@ -101,115 +101,67 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
     onPersonaUpdate: (persona: any) => void,
     onProgress: (progress: number) => void
   ) => {
-    return new Promise<void>((resolve, reject) => {
-      const wsProtocol = backendUrl.startsWith('https') ? 'wss' : 'ws';
-      const wsBaseUrl = backendUrl.replace(/^https?:/, '');
+    return new Promise<void>(async (resolve, reject) => {
       const sessionId = `audit_${Date.now()}`;
-      const wsUrl = `${wsProtocol}:${wsBaseUrl}/ws/audit/${sessionId}`;
+      console.log('Creating audit session...', sessionId);
 
-      const ws = new WebSocket(wsUrl);
-      let messageCount = 0;
+      try {
+        // 1. Create session with personas
+        const response = await fetch(`${backendUrl}/api/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            mode: 'auditor',
+            system_prompt: systemPrompt,
+            domain,
+            target_model: targetModel,
+            personas: personas,
+          }),
+        });
 
-      ws.onopen = async () => {
-        console.log('WebSocket connected, creating session...');
-        // Create session on backend
-        try {
-          const response = await fetch(`${backendUrl}/api/sessions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              session_id: sessionId,
-              mode: 'auditor',
-              system_prompt: systemPrompt,
-              domain,
-              target_model: targetModel,
-            }),
-          });
+        if (!response.ok) throw new Error('Failed to create session');
+
+        // 2. Connect to WebSocket
+        const wsProtocol = backendUrl.startsWith('https') ? 'wss' : 'ws';
+        const wsBaseUrl = backendUrl.replace(/^https?:/, '');
+        const wsUrl = `${wsProtocol}:${wsBaseUrl}/ws/audit/${sessionId}`;
+
+        console.log('Connecting to WebSocket...', wsUrl);
+        const ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
           
-          if (!response.ok) throw new Error('Failed to create session');
-          const sessionData = await response.json();
-
-          // Send personas to backend
-          const personasResponse = await fetch(`${backendUrl}/api/personas`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              base_scenario: 'Evaluate Candidate: [NAME]\n[QUALIFICATIONS]',
-              axes: personas[0]?.demographics ? Object.keys(personas[0].demographics).map(key => ({
-                id: key,
-                name: key,
-                values: [...new Set(personas.map(p => p.demographics[key]))],
-                active: true,
-              })) : [],
-              qualifications: { Experience: '8 years', Degree: 'Computer Science, BSc' },
-              count: personas.length,
-            }),
-          });
-
-          if (!personasResponse.ok) throw new Error('Failed to generate personas');
-          const { personas: backendPersonas } = await personasResponse.json();
-
-          // Stream probes via dedicated endpoint or trigger WebSocket stream
-          for (const persona of backendPersonas) {
-            const probeResponse = await fetch(`${backendUrl}/api/probe`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                system_prompt: systemPrompt,
-                persona,
-              }),
+          if (data.type === 'persona_complete') {
+            onPersonaUpdate(data.persona);
+            onProgress(data.progress);
+          } else if (data.type === 'analysis_complete') {
+            setResults({
+              metrics: data.metrics,
+              intersectionalData: data.intersectional_data,
+              semanticDivergence: data.semantic_divergence,
+              narrative: data.narrative,
             });
-
-            if (probeResponse.ok) {
-              const { persona: scoredPersona } = await probeResponse.json();
-              onPersonaUpdate(scoredPersona);
-              messageCount++;
-              onProgress((messageCount / backendPersonas.length) * 100);
-            }
-          }
-        } catch (error) {
-          console.error('Session setup error:', error);
-          reject(error);
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === 'persona_complete') {
-            onPersonaUpdate(message.persona);
-            messageCount++;
-            onProgress(message.progress || (messageCount / personas.length) * 100);
-          } else if (message.type === 'analysis_complete') {
-            console.log('Analysis complete:', message);
             ws.close();
             resolve();
+          } else if (data.type === 'error') {
+            reject(new Error(data.message));
           }
-        } catch (error) {
-          console.error('Message parse error:', error);
-        }
-      };
+        };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        ws.close();
-        reject(error);
-      };
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          reject(new Error('WebSocket connection failed'));
+        };
 
-      ws.onclose = () => {
-        console.log('WebSocket closed');
-        if (messageCount === 0) {
-          reject(new Error('WebSocket closed without receiving data'));
-        }
-      };
+        ws.onclose = () => {
+          console.log('WebSocket closed');
+        };
 
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        if (ws.readyState !== WebSocket.CLOSED) {
-          ws.close();
-          reject(new Error('WebSocket timeout'));
-        }
-      }, 300000);
+      } catch (err) {
+        reject(err);
+      }
     });
   };
 

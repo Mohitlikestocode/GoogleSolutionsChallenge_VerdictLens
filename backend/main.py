@@ -133,6 +133,7 @@ class CreateSessionRequest(BaseModel):
     system_prompt: str = ""
     domain: str = "Hiring"
     target_model: str = "local"
+    personas: Optional[List[PersonaProfile]] = None
 
 
 class ReconstructPromptRequest(BaseModel):
@@ -811,6 +812,8 @@ async def create_session(payload: CreateSessionRequest):
     session.systemPrompt = clean_prompt(payload.system_prompt)
     session.domain = payload.domain
     session.targetModel = payload.target_model
+    if payload.personas:
+        session.personas = payload.personas
     upsert_session(session)
     return {"session": session}
 
