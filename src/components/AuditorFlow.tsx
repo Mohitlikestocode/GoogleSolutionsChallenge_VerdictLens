@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Terminal, Settings2, Play, Info, CheckCircle2, AlertCircle, Loader2, Database, ShieldCheck } from 'lucide-react';
 import { useAuditStore } from '../store/useAuditStore';
