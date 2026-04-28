@@ -22,7 +22,6 @@ __pycache__
 venv
 env
 .env
-.env.example
 README.md
 LICENSE
 Documentation
