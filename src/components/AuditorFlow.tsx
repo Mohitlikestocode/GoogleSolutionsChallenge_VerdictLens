@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Terminal, Settings2, Play, Info, CheckCircle2, AlertCircle, Loader2, Database, ShieldCheck } from 'lucide-react';
 import { useAuditStore } from '../store/useAuditStore';
 import { geminiService } from '../services/geminiService';
-import { DOMAINS, SCENARIO_TEMPLATES } from '../constants';
+import { DOMAINS, SCENARIO_TEMPLATES, MODELS } from '../constants';
 import { cn } from '../lib/utils';
 
 interface AuditorFlowProps {
