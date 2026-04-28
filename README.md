@@ -1,10 +1,16 @@
-# VerdictLens AI Fairness Auditor
+<div align="center">
+
+# ⚖️ VerdictLens AI Fairness Auditor
 
 ![VerdictLens Intro Banner](intro.png)
 
-**The AI that judges you is being judged back.**
+### **"The AI that judges you is being judged back."**
 
-VerdictLens is an adversarial red-teaming platform designed to audit and mitigate bias in LLM-based decision systems. By orchestrating a **"Persona Swarm"**, it stress-tests AI decision boundaries to uncover hidden statistical, linguistic, and intersectional disparities.
+**VerdictLens** is a next-generation adversarial red-teaming platform. We orchestrate massive **Persona Swarms** to expose the hidden statistical, linguistic, and intersectional biases lurking within modern LLM decision systems.
+
+---
+
+</div>
 
 ## 🚀 Quick Start
 
