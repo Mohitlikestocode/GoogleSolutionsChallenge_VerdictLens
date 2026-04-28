@@ -137,12 +137,10 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
             onPersonaUpdate(data.persona);
             onProgress(data.progress);
           } else if (data.type === 'analysis_complete') {
-            setResults({
-              metrics: data.metrics,
-              intersectionalData: data.intersectional_data,
-              semanticDivergence: data.semantic_divergence,
-              narrative: data.narrative,
-            });
+            setMetrics(data.metrics);
+            setIntersectionalData(data.intersectional_data);
+            setSemanticDivergence(data.semantic_divergence);
+            setNarrative(data.narrative);
             ws.close();
             resolve();
           } else if (data.type === 'error') {
