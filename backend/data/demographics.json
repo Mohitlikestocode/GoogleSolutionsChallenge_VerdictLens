@@ -1,0 +1,19 @@
+{
+  "gender": ["male", "female", "non-binary"],
+  "race": ["White", "Black", "Hispanic/Latino", "Asian", "Native American", "Middle Eastern"],
+  "age": ["22-30", "31-40", "41-50", "51-60"],
+  "disability": ["no disclosed disability", "visual impairment", "mobility limitation", "chronic illness"],
+  "religion": ["no religion specified", "Christian", "Muslim", "Jewish", "Hindu", "Atheist"],
+  "name_pool": {
+    "Black_female": ["Aisha Johnson", "Keisha Williams", "Tamara Brown"],
+    "Black_male": ["DeShawn Jackson", "Marcus Thompson", "Jamal Davis"],
+    "White_female": ["Emily Anderson", "Sarah Mitchell", "Jennifer Clarke"],
+    "White_male": ["Tyler Harrison", "Brad Wilson", "Kevin Moore"],
+    "Hispanic_female": ["Maria Garcia", "Sofia Rodriguez", "Isabella Martinez"],
+    "Hispanic_male": ["Carlos Hernandez", "Miguel Lopez", "Jose Ramirez"],
+    "Asian_female": ["Wei Chen", "Priya Patel", "Yuki Tanaka"],
+    "Asian_male": ["Kevin Zhang", "Raj Sharma", "Jin-Ho Park"],
+    "Middle Eastern_female": ["Fatima Al-Fassi", "Layla Hassan", "Amira Zadeh"],
+    "Middle Eastern_male": ["Omar Khalil", "Zaid Ibrahim", "Ahmed Yilmaz"]
+  }
+}

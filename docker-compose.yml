@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Backend: FastAPI audit engine
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: verdictlens-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - VITE_APP_ORIGIN=http://frontend:3000
+      - APP_ORIGIN=http://localhost:3000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - verdictlens-net
+
+  # Frontend: Vite SPA served via Nginx with API reverse proxy
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: verdictlens-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_BACKEND_URL=http://backend:8000
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - verdictlens-net
+
+networks:
+  verdictlens-net:
+    driver: bridge
+
+# Usage:
+# Development (with hot reload):
+#   docker-compose up
+#
+# Production build:
+#   docker-compose build --no-cache
+#   docker-compose up -d
+#
+# View logs:
+#   docker-compose logs -f backend
+#   docker-compose logs -f frontend
+#
+# Cleanup:
+#   docker-compose down -v
+#   docker system prune -a

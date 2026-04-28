@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+python-dotenv>=1.0
+groq>=0.12
+openai>=1.40
+sentence-transformers>=3.0
+scipy>=1.13
+numpy>=1.26
+pandas>=2.2
+statsmodels>=0.14

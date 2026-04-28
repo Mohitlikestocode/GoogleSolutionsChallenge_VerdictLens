@@ -1,0 +1,6 @@
+{
+  "name": "VerdictLens — AI Fairness Auditor",
+  "description": "The AI that judges you is being judged back. Adversarial fairness auditing for LLM-powered decision systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
