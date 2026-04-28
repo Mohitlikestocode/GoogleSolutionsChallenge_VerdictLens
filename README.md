@@ -2,7 +2,7 @@
 
 # ⚖️ VerdictLens AI Fairness Auditor
 
-![VerdictLens Intro Banner](intro.png)
+![VerdictLens Intro Banner](assets/intro.png)
 
 ### **"The AI that judges you is being judged back."**
 
