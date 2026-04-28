@@ -464,6 +464,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
       </AnimatePresence>
     </div>
   );
+}
 
 function SwarmNode({ persona, index }: { persona: any, index: number, key?: string }) {
     const isPending = persona.verdictLabel === 'PENDING';
