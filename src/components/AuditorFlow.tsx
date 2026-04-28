@@ -464,21 +464,6 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
       </AnimatePresence>
     </div>
   );
-}
-
-            {/* Metrics Ticker */}
-            <div className="max-w-4xl mx-auto grid grid-cols-4 gap-6">
-                <MiniMetric label="Rejected" value={personas.filter(p => p.verdictLabel === 'REJECTED').length.toString()} color="text-rose-500" />
-                <MiniMetric label="Approved" value={personas.filter(p => p.verdictLabel === 'APPROVED').length.toString()} color="text-emerald-500" />
-                <MiniMetric label="Neutral" value={personas.filter(p => p.verdictLabel === 'AMBIGUOUS').length.toString()} color="text-amber-500" />
-                <MiniMetric label="Target Depth" value={personas.length.toString()} color="text-neutral-300" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 function SwarmNode({ persona, index }: { persona: any, index: number, key?: string }) {
     const isPending = persona.verdictLabel === 'PENDING';
