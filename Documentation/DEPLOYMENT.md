@@ -2,13 +2,38 @@
 
 This guide outlines how to deploy the VerdictLens AI Fairness Auditor to a production environment for hackathon submission.
 
-## Architecture
-- **Frontend**: React/Vite (Deployed to **Vercel** or **Firebase Hosting**)
-- **Backend**: FastAPI/Python (Deployed to **Google Cloud Run** or **Railway**)
+This guide covers how to deploy the **VerdictLens AI Fairness Auditor** to production environments.
+
+## Option 1: Railway (Recommended)
+
+Railway is excellent for deploying full-stack applications with multiple services.
+
+### 1. Deploy the Backend
+1.  **New Project**: Create a new project on [Railway](https://railway.app/).
+2.  **GitHub Repo**: Connect your GitHub repository.
+3.  **Root Directory**: In the service settings, set the **Root Directory** to `/backend`.
+4.  **Start Command**: Set the custom start command to:
+    ```bash
+    uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+    ```
+5.  **Environment Variables**:
+    -   `GROQ_API_KEY`: Your Groq API key.
+    -   `GOOGLE_API_KEY`: Your Gemini API key.
+    -   `GEMINI_MODEL`: `gemini-1.5-pro` (or flash).
+    -   `GROQ_MODEL`: `llama-3.3-70b-versatile`.
+6.  **Public URL**: Enable "Generate Domain" in the Settings tab. Copy this URL (e.g., `https://backend-production.up.railway.app`).
+
+### 2. Deploy the Frontend
+1.  **Add Service**: Add another service from the same GitHub repo.
+2.  **Root Directory**: Keep it as the project root (`/`).
+3.  **Environment Variables**:
+    -   `VITE_BACKEND_URL`: The Public URL of your Backend service (from step 6 above).
+4.  **Railway Detection**: Railway will automatically detect the Vite app and use `npm run build` and `npm run start` (or serve the `dist` folder).
+5.  **Public URL**: Enable "Generate Domain" for the frontend service.
 
 ---
 
-## 1. Backend Deployment (Google Cloud Run) - RECOMMENDED
+## Option 2: Google Cloud Run (Backend Only)
 Since this is a Google Solutions Hackathon, using Google Cloud Run is highly recommended for the backend.
 
 ### Prerequisites
@@ -33,7 +58,7 @@ Since this is a Google Solutions Hackathon, using Google Cloud Run is highly rec
 
 ---
 
-## 2. Frontend Deployment (Vercel)
+## 3. Frontend Deployment (Vercel)
 Vercel is the easiest way to deploy the React frontend.
 
 ### Steps
