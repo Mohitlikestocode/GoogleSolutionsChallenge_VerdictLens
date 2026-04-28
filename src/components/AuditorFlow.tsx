@@ -18,45 +18,62 @@ interface AuditorFlowProps {
 export function AuditorFlow({ onComplete }: AuditorFlowProps) {
   console.log("AuditorFlow: Rendering...");
   const [step, setStep] = useState(1);
-  const { 
-    systemPrompt, 
-    setSystemPrompt, 
-    domain, 
-    setDomain, 
-    activeAxes,
-    targetModel,
-    setTargetModel,
-    setStatus,
-    setProgress,
-    setPersonas,
-    updatePersona,
-    personas,
-    setMetrics,
-    setIntersectionalData,
-    setSemanticDivergence,
-    setNarrative
-  } = useAuditStore();
+  const [isStuck, setIsStuck] = useState(false);
+  
+  const systemPrompt = useAuditStore(state => state.systemPrompt);
+  const setSystemPrompt = useAuditStore(state => state.setSystemPrompt);
+  const domain = useAuditStore(state => state.domain);
+  const setDomain = useAuditStore(state => state.setDomain);
+  const activeAxes = useAuditStore(state => state.activeAxes);
+  const targetModel = useAuditStore(state => state.targetModel);
+  const setTargetModel = useAuditStore(state => state.setTargetModel);
+  const status = useAuditStore(state => state.status);
+  const setStatus = useAuditStore(state => state.setStatus);
+  const progress = useAuditStore(state => state.progress);
+  const setProgress = useAuditStore(state => state.setProgress);
+  const personas = useAuditStore(state => state.personas);
+  const setPersonas = useAuditStore(state => state.setPersonas);
+  const updatePersona = useAuditStore(state => state.updatePersona);
+  const setMetrics = useAuditStore(state => state.setMetrics);
+  const setIntersectionalData = useAuditStore(state => state.setIntersectionalData);
+  const setSemanticDivergence = useAuditStore(state => state.setSemanticDivergence);
+  const setNarrative = useAuditStore(state => state.setNarrative);
 
-  const handleLaunch = async () => {
-    console.log("AuditorFlow: Launching Audit...");
+  // Watchdog for stuck audits
+  useEffect(() => {
+    let timer: any;
+    if (step === 2 && progress === 0 && status === 'probing') {
+      timer = setTimeout(() => setIsStuck(true), 6000);
+    } else {
+      setIsStuck(false);
+    }
+    return () => clearTimeout(timer);
+  }, [step, progress, status]);
+
+  const handleLaunch = async (forceLocal = false) => {
+    console.log("AuditorFlow: Launching Audit...", forceLocal ? "(FORCED LOCAL)" : "");
     setStep(2);
     setStatus('probing');
     setProgress(0);
+    setIsStuck(false);
     
     try {
-      // Generate full matrix of personas
-      const template = SCENARIO_TEMPLATES[domain] || "Evaluate Candidate: [NAME]\n[QUALIFICATIONS]\n[DEMOGRAPHICS]";
-      const allPersonas = await geminiService.generatePersonas(template, activeAxes, {
-          "Experience": "8 years",
-          "Degree": "Computer Science, BSc",
-          "Skills": "Fullstack development, Cloud architecture"
-      }, 48);
-      
-      setPersonas(allPersonas);
+      // 1. Generate personas (or use existing if forceLocal)
+      let allPersonas = personas;
+      if (personas.length === 0 || forceLocal) {
+        const template = SCENARIO_TEMPLATES[domain] || "Evaluate Candidate: [NAME]\n[QUALIFICATIONS]\n[DEMOGRAPHICS]";
+        allPersonas = await geminiService.generatePersonas(template, activeAxes, {
+            "Experience": "8 years",
+            "Degree": "Computer Science, BSc",
+            "Skills": "Fullstack development, Cloud architecture"
+        }, 48);
+        setPersonas(allPersonas);
+      }
 
-      // Try to stream via WebSocket if backend is available, else fall back to HTTP polling
       const backendUrl = geminiService.getBackendBaseUrl?.();
-      if (backendUrl) {
+      
+      // 2. Probing Logic
+      if (backendUrl && !forceLocal) {
         try {
           await streamProbesViaWebSocket(
             backendUrl,
@@ -64,7 +81,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
             domain,
             allPersonas,
             (persona: any) => updatePersona(persona.id, persona),
-            (progress: number) => setProgress(progress)
+            (p: number) => setProgress(p)
           );
         } catch (wsError) {
           console.warn('WebSocket failed, falling back to HTTP:', wsError);
@@ -72,7 +89,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
             systemPrompt,
             allPersonas,
             (persona: any) => updatePersona(persona.id, persona),
-            (progress: number) => setProgress(progress)
+            (p: number) => setProgress(p)
           );
         }
       } else {
@@ -80,7 +97,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
           systemPrompt,
           allPersonas,
           (persona: any) => updatePersona(persona.id, persona),
-          (progress: number) => setProgress(progress)
+          (p: number) => setProgress(p)
         );
       }
       
@@ -99,7 +116,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
     domain: string,
     personasToProbe: any[],
     onPersonaUpdate: (persona: any) => void,
-    onProgress: (progress: number) => void
+    onProgress: (p: number) => void
   ) => {
     return new Promise<void>((resolve, reject) => {
       const run = async () => {
@@ -108,7 +125,6 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         try {
-          console.log('Attempting to create session...', backendUrl);
           const response = await fetch(`${backendUrl}/api/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -130,21 +146,16 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
           const wsBaseUrl = backendUrl.replace(/^https?:/, '');
           const wsUrl = `${wsProtocol}:${wsBaseUrl}/ws/audit/${sessionId}`;
 
-          console.log('Connecting to WebSocket...', wsUrl);
           const ws = new WebSocket(wsUrl);
           
           const wsTimeout = setTimeout(() => {
             if (ws.readyState !== WebSocket.OPEN) {
-              console.warn('WebSocket connection timed out');
               ws.close();
               reject(new Error('Connection timeout'));
             }
           }, 3000);
 
-          ws.onopen = () => {
-            clearTimeout(wsTimeout);
-            console.log('WebSocket connected');
-          };
+          ws.onopen = () => clearTimeout(wsTimeout);
 
           ws.onmessage = (event) => {
             try {
@@ -169,11 +180,8 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
 
           ws.onerror = (error) => {
             clearTimeout(wsTimeout);
-            console.error('WebSocket error:', error);
             reject(new Error('WebSocket failed'));
           };
-
-          ws.onclose = () => console.log('WebSocket closed');
 
         } catch (err) {
           clearTimeout(timeoutId);
@@ -188,18 +196,15 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
     systemPrompt: string,
     allPersonas: any[],
     onPersonaUpdate: (persona: any) => void,
-    onProgress: (progress: number) => void
+    onProgress: (p: number) => void
   ) => {
     let completed = 0;
-    for (let i = 0; i < allPersonas.length; i += 3) {
-      const chunk = allPersonas.slice(i, i + 3);
-      await Promise.all(chunk.map(async p => {
-        const result = await geminiService.probePersona(systemPrompt, p);
-        onPersonaUpdate(result);
-      }));
-      completed += chunk.length;
+    // Sequential probing for better UI stability
+    for (const p of allPersonas) {
+      const result = await geminiService.probePersona(systemPrompt, p);
+      onPersonaUpdate(result);
+      completed++;
       onProgress(Math.round((completed / allPersonas.length) * 100));
-      await new Promise(r => setTimeout(r, 100)); // Visual buffer
     }
   };
 
@@ -363,7 +368,7 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
                 </div>
 
                 <button 
-                  onClick={handleLaunch}
+                  onClick={() => handleLaunch()}
                   disabled={!systemPrompt}
                   className="w-full flex items-center justify-center gap-2 px-8 py-4 bg-violet-600 text-white font-semibold rounded-2xl hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
                 >
@@ -418,20 +423,48 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
                 {/* Progress Overlay */}
                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-neutral-950/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-neutral-800 flex items-center gap-4">
                     <div className="text-xs font-mono font-bold text-neutral-400">
-                        PROCESSING PROBES... {Math.round((personas.filter(p => p.verdictLabel !== 'PENDING').length / personas.length) * 100)}%
+                        {isStuck ? (
+                          <span className="text-rose-500 flex items-center gap-2">
+                             <AlertCircle size={14} />
+                             DETECTION HANG...
+                          </span>
+                        ) : (
+                          <>PROCESSING PROBES... {Math.round((personas.filter(p => p.verdictLabel !== 'PENDING').length / (personas.length || 1)) * 100)}%</>
+                        )}
                     </div>
-                    {personas.every(p => p.verdictLabel !== 'PENDING') ? (
+                    {status === 'complete' || personas.every(p => p.verdictLabel !== 'PENDING') ? (
                         <button 
                           onClick={onComplete}
                           className="bg-white text-black text-[10px] font-black uppercase px-4 py-1.5 rounded-lg hover:bg-neutral-200 transition-colors"
                         >
                           View Report
                         </button>
+                    ) : isStuck ? (
+                        <button 
+                          onClick={() => handleLaunch(true)}
+                          className="bg-rose-600 text-white text-[10px] font-black uppercase px-4 py-1.5 rounded-lg hover:bg-rose-500 transition-colors shadow-[0_0_15px_rgba(225,29,72,0.4)]"
+                        >
+                          Force Local Audit
+                        </button>
                     ) : (
                         <Loader2 size={16} className="text-violet-500 animate-spin" />
                     )}
                 </div>
             </div>
+
+            {/* Metrics Ticker */}
+            <div className="max-w-4xl mx-auto grid grid-cols-4 gap-6">
+                <MiniMetric label="Rejected" value={personas.filter(p => p.verdictLabel === 'REJECTED').length.toString()} color="text-rose-500" />
+                <MiniMetric label="Approved" value={personas.filter(p => p.verdictLabel === 'APPROVED').length.toString()} color="text-emerald-500" />
+                <MiniMetric label="Neutral" value={personas.filter(p => p.verdictLabel === 'AMBIGUOUS').length.toString()} color="text-amber-500" />
+                <MiniMetric label="Target Depth" value={personas.length.toString()} color="text-neutral-300" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
             {/* Metrics Ticker */}
             <div className="max-w-4xl mx-auto grid grid-cols-4 gap-6">
