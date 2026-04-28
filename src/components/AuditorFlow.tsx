@@ -104,13 +104,15 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
     return new Promise<void>((resolve, reject) => {
       const run = async () => {
         const sessionId = `audit_${Date.now()}`;
-        console.log('Creating audit session...', sessionId);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         try {
-          // 1. Create session with personas
+          console.log('Attempting to create session...', backendUrl);
           const response = await fetch(`${backendUrl}/api/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               session_id: sessionId,
               mode: 'auditor',
@@ -120,51 +122,67 @@ export function AuditorFlow({ onComplete }: AuditorFlowProps) {
               personas: personasToProbe,
             }),
           });
+          clearTimeout(timeoutId);
 
-          if (!response.ok) throw new Error('Failed to create session');
+          if (!response.ok) throw new Error('Backend session creation failed');
 
-        // 2. Connect to WebSocket
-        const wsProtocol = backendUrl.startsWith('https') ? 'wss' : 'ws';
-        const wsBaseUrl = backendUrl.replace(/^https?:/, '');
-        const wsUrl = `${wsProtocol}:${wsBaseUrl}/ws/audit/${sessionId}`;
+          const wsProtocol = backendUrl.startsWith('https') ? 'wss' : 'ws';
+          const wsBaseUrl = backendUrl.replace(/^https?:/, '');
+          const wsUrl = `${wsProtocol}:${wsBaseUrl}/ws/audit/${sessionId}`;
 
-        console.log('Connecting to WebSocket...', wsUrl);
-        const ws = new WebSocket(wsUrl);
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
+          console.log('Connecting to WebSocket...', wsUrl);
+          const ws = new WebSocket(wsUrl);
           
-          if (data.type === 'persona_complete') {
-            onPersonaUpdate(data.persona);
-            onProgress(data.progress);
-          } else if (data.type === 'analysis_complete') {
-            setMetrics(data.metrics);
-            setIntersectionalData(data.intersectional_data);
-            setSemanticDivergence(data.semantic_divergence);
-            setNarrative(data.narrative);
-            ws.close();
-            resolve();
-          } else if (data.type === 'error') {
-            reject(new Error(data.message));
-          }
-        };
+          const wsTimeout = setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) {
+              console.warn('WebSocket connection timed out');
+              ws.close();
+              reject(new Error('Connection timeout'));
+            }
+          }, 3000);
 
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          reject(new Error('WebSocket connection failed'));
-        };
+          ws.onopen = () => {
+            clearTimeout(wsTimeout);
+            console.log('WebSocket connected');
+          };
 
-        ws.onclose = () => {
-          console.log('WebSocket closed');
-        };
+          ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.type === 'persona_complete') {
+                onPersonaUpdate(data.persona);
+                onProgress(data.progress);
+              } else if (data.type === 'analysis_complete') {
+                setMetrics(data.metrics);
+                setIntersectionalData(data.intersectional_data);
+                setSemanticDivergence(data.semantic_divergence);
+                setNarrative(data.narrative);
+                ws.close();
+                resolve();
+              } else if (data.type === 'error') {
+                reject(new Error(data.message));
+              }
+            } catch (e) {
+              console.error('Error parsing WS message:', e);
+            }
+          };
 
-      } catch (err) {
-        reject(err);
-      }
-    };
-    run();
-  });
-};
+          ws.onerror = (error) => {
+            clearTimeout(wsTimeout);
+            console.error('WebSocket error:', error);
+            reject(new Error('WebSocket failed'));
+          };
+
+          ws.onclose = () => console.log('WebSocket closed');
+
+        } catch (err) {
+          clearTimeout(timeoutId);
+          reject(err);
+        }
+      };
+      run();
+    });
+  };
 
   const probesViaHttpPolling = async (
     systemPrompt: string,
