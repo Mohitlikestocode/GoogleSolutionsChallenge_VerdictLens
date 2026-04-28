@@ -11,9 +11,7 @@ RUN npm ci
 
 # Copy source code
 COPY src/ ./src/
-COPY public/ ./public/ 2>/dev/null || true
 COPY tsconfig.json vite.config.ts index.html ./
-COPY .env.example .env
 
 # Build application
 RUN npm run build
